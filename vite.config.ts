@@ -51,13 +51,19 @@ export default defineConfig(async () => {
   const { cloudflare } = await import("@cloudflare/vite-plugin");
 
   return {
+    optimizeDeps: {
+      exclude: ["lucide-react"],
+    },
     server: {
       ...(managedLinux ? { host: "0.0.0.0", allowedHosts: ["terminal.local"] } : {}),
       // Опционалды алдын ала қарау хосты (мыс. бұлттық sandbox). Жергілікті дамуға әсер етпейді.
       ...(process.env.SITES_PREVIEW_HOST
         ? { host: "0.0.0.0" as const, allowedHosts: [process.env.SITES_PREVIEW_HOST] }
         : {}),
-      ...(isCodexSeatbeltSandbox ? { watch: { useFsEvents: false, usePolling: true } } : {}),
+      watch: {
+        ...(isCodexSeatbeltSandbox ? { useFsEvents: false, usePolling: true } : {}),
+        ignored: ["**/.env*"],
+      },
     },
     plugins: [
       vinext(),
