@@ -1,0 +1,85 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isTeacher() {
+      return signedIn()
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "teacher";
+    }
+
+    match /users/{userId} {
+      allow read: if signedIn() && (request.auth.uid == userId || isTeacher());
+      allow create: if signedIn()
+        && request.auth.uid == userId
+        && request.resource.data.role in ["student", "teacher"];
+      allow update: if signedIn()
+        && request.auth.uid == userId
+        && (
+          request.resource.data.role == resource.data.role
+          || (
+            resource.data.role == "student"
+            && request.resource.data.role == "teacher"
+            && (!("roleLocked" in resource.data) || resource.data.roleLocked == false)
+          )
+        );
+      allow delete: if false;
+
+      match /quizAttempts/{attemptId} {
+        allow read: if request.auth != null && request.auth.uid == userId;
+        allow create: if request.auth != null
+          && request.auth.uid == userId
+          && request.resource.data.score is int
+          && request.resource.data.total is int
+          && request.resource.data.percent is int
+          && request.resource.data.createdAt is int
+          && request.resource.data.score >= 0
+          && request.resource.data.score <= request.resource.data.total
+          && request.resource.data.total == 5
+          && request.resource.data.percent >= 0
+          && request.resource.data.percent <= 100;
+        allow update, delete: if false;
+      }
+    }
+
+    match /feedbackThreads/{threadId} {
+      allow read: if signedIn() && (resource.data.studentId == request.auth.uid || isTeacher());
+      allow create: if signedIn()
+        && request.resource.data.studentId == request.auth.uid
+        && request.resource.data.status == "open"
+        && request.resource.data.subject is string
+        && request.resource.data.subject.size() > 0
+        && request.resource.data.subject.size() <= 80
+        && request.resource.data.lastMessage is string
+        && request.resource.data.lastMessage.size() > 0
+        && request.resource.data.lastMessage.size() <= 1000;
+      allow update: if signedIn() && (
+        isTeacher()
+        || (resource.data.studentId == request.auth.uid
+          && request.resource.data.studentId == resource.data.studentId
+          && request.resource.data.status == "open"
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["lastMessage", "status", "updatedAt"]))
+      );
+      allow delete: if false;
+
+      match /messages/{messageId} {
+        function thread() {
+          return get(/databases/$(database)/documents/feedbackThreads/$(threadId));
+        }
+
+        allow read: if signedIn() && (thread().data.studentId == request.auth.uid || isTeacher());
+        allow create: if signedIn()
+          && request.resource.data.senderId == request.auth.uid
+          && request.resource.data.text is string
+          && request.resource.data.text.size() > 0
+          && request.resource.data.text.size() <= 1000
+          && ((thread().data.studentId == request.auth.uid && request.resource.data.senderRole == "student")
+            || (isTeacher() && request.resource.data.senderRole == "teacher"));
+        allow update, delete: if false;
+      }
+    }
+  }
+}
