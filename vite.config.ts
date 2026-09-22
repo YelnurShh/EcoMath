@@ -53,6 +53,10 @@ export default defineConfig(async () => {
   return {
     server: {
       ...(managedLinux ? { host: "0.0.0.0", allowedHosts: ["terminal.local"] } : {}),
+      // Опционалды алдын ала қарау хосты (мыс. бұлттық sandbox). Жергілікті дамуға әсер етпейді.
+      ...(process.env.SITES_PREVIEW_HOST
+        ? { host: "0.0.0.0" as const, allowedHosts: [process.env.SITES_PREVIEW_HOST] }
+        : {}),
       ...(isCodexSeatbeltSandbox ? { watch: { useFsEvents: false, usePolling: true } } : {}),
     },
     plugins: [

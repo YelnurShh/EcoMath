@@ -6,31 +6,38 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    function isTeacher() {
-      return signedIn()
-        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "teacher";
+    function userData(uid) {
+      return get(/databases/$(database)/documents/users/$(uid)).data;
     }
 
+    function isTeacher() {
+      return signedIn() && userData(request.auth.uid).role == "teacher";
+    }
+
+    // ---------- Қолданушылар ----------
     match /users/{userId} {
+      // Мұғалім барлық оқушыны көре алады (панель үшін), оқушы тек өзін.
       allow read: if signedIn() && (request.auth.uid == userId || isTeacher());
+      allow list: if signedIn() && isTeacher();
+
       allow create: if signedIn()
         && request.auth.uid == userId
         && request.resource.data.role in ["student", "teacher"];
-      allow update: if signedIn()
-        && request.auth.uid == userId
-        && (
-          request.resource.data.role == resource.data.role
-          || (
-            resource.data.role == "student"
-            && request.resource.data.role == "teacher"
-            && (!("roleLocked" in resource.data) || resource.data.roleLocked == false)
-          )
-        );
+
+      // Рөл өзгермейді. Мұғалім оқушының статистикасын (баға/XP) жаңарта алады.
+      allow update: if signedIn() && (
+        (request.auth.uid == userId
+          && request.resource.data.role == resource.data.role)
+        || (isTeacher()
+          && request.resource.data.role == resource.data.role
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["stats", "updatedAt", "lastActiveAt"]))
+      );
+
       allow delete: if false;
 
       match /quizAttempts/{attemptId} {
-        allow read: if request.auth != null && request.auth.uid == userId;
-        allow create: if request.auth != null
+        allow read: if signedIn() && (request.auth.uid == userId || isTeacher());
+        allow create: if signedIn()
           && request.auth.uid == userId
           && request.resource.data.score is int
           && request.resource.data.total is int
@@ -38,15 +45,66 @@ service cloud.firestore {
           && request.resource.data.createdAt is int
           && request.resource.data.score >= 0
           && request.resource.data.score <= request.resource.data.total
-          && request.resource.data.total == 5
+          && request.resource.data.total > 0
+          && request.resource.data.total <= 50
           && request.resource.data.percent >= 0
           && request.resource.data.percent <= 100;
         allow update, delete: if false;
       }
     }
 
+    // ---------- Тапсырмалар ----------
+    match /assignments/{assignmentId} {
+      allow read: if signedIn();
+
+      allow create: if isTeacher()
+        && request.resource.data.teacherId == request.auth.uid
+        && request.resource.data.title is string
+        && request.resource.data.title.size() > 0
+        && request.resource.data.title.size() <= 120
+        && request.resource.data.description is string
+        && request.resource.data.description.size() <= 2000
+        && request.resource.data.maxPoints is int
+        && request.resource.data.maxPoints >= 1
+        && request.resource.data.maxPoints <= 100;
+
+      // Мұғалім өз тапсырмасын өңдейді; кез келген қолданушы тек есептегіштерді өсіре алады.
+      allow update: if signedIn() && (
+        (isTeacher() && resource.data.teacherId == request.auth.uid)
+        || request.resource.data.diff(resource.data).affectedKeys().hasOnly(["submissionCount", "gradedCount"])
+      );
+
+      allow delete: if isTeacher() && resource.data.teacherId == request.auth.uid;
+
+      match /submissions/{studentId} {
+        allow read: if signedIn() && (request.auth.uid == studentId || isTeacher());
+        allow list: if isTeacher();
+
+        // Оқушы тек өз жұмысын жібереді/өңдейді, бағаны өзгерте алмайды.
+        allow create: if signedIn()
+          && request.auth.uid == studentId
+          && request.resource.data.studentId == request.auth.uid
+          && request.resource.data.status == "submitted"
+          && request.resource.data.grade == 0
+          && request.resource.data.text is string
+          && request.resource.data.text.size() <= 3000;
+
+        allow update: if signedIn() && (
+          (request.auth.uid == studentId
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["text", "link", "updatedAt", "submittedAt", "status", "maxPoints"])
+            && request.resource.data.grade == resource.data.grade)
+          || isTeacher()
+        );
+
+        allow delete: if isTeacher();
+      }
+    }
+
+    // ---------- Кері байланыс ----------
     match /feedbackThreads/{threadId} {
       allow read: if signedIn() && (resource.data.studentId == request.auth.uid || isTeacher());
+      allow list: if signedIn();
+
       allow create: if signedIn()
         && request.resource.data.studentId == request.auth.uid
         && request.resource.data.status == "open"
@@ -56,13 +114,15 @@ service cloud.firestore {
         && request.resource.data.lastMessage is string
         && request.resource.data.lastMessage.size() > 0
         && request.resource.data.lastMessage.size() <= 1000;
+
       allow update: if signedIn() && (
         isTeacher()
         || (resource.data.studentId == request.auth.uid
           && request.resource.data.studentId == resource.data.studentId
           && request.resource.data.status == "open"
-          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["lastMessage", "status", "updatedAt"]))
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["lastMessage", "lastSenderRole", "status", "updatedAt", "messageCount"]))
       );
+
       allow delete: if false;
 
       match /messages/{messageId} {
