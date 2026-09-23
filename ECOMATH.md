@@ -199,3 +199,61 @@ Firestore-де `orderBy` қолданылған өрісі **жоқ** құжат
 - Сыныбы бос болса — сары ескерту + «Профильді толтыру» батырмасы
 - Басқа сыныптың тапсырмалары бар болса — «N тапсырма басқа сыныпқа арналған» + «Бәрін көрсету» батырмасы
 - Бос тізімде себебі жазылады: «Әзірге тапсырма жарияланбаған» / «Сіздің сыныбыңызға тапсырма жоқ»
+
+## 11. Vercel-ге деплой жасау
+
+### Кездескен қате және оның себебі
+
+```
+[ERR_PNPM_IGNORED_BUILDS] Ignored build scripts: @firebase/util@1.15.3, protobufjs@7.6.6
+Error: Command "pnpm install" exited with 1
+```
+
+`pnpm-workspace.yaml` файлында екі пакеттің мәні толтырылмай, плейсхолдер мәтін тұрған:
+
+```yaml
+allowBuilds:
+  '@firebase/util': set this to true or false   # ← жарамсыз
+  protobufjs: set this to true or false         # ← жарамсыз
+```
+
+`strictDepBuilds: true` қосулы болғандықтан pnpm орнатуды тоқтатқан. **Шешім:** екеуі де `true`
+етіп қойылды (Firebase-тің postinstall скрипті пакеттің дұрыс жұмысы үшін қажет).
+
+### Vercel баптаулары
+
+Жоба бастапқыда **Cloudflare Workers** (vinext) үшін жасалған, сондықтан әдепкі `npm run build`
+командасы `dist/server/wrangler.json` шығарады — Vercel оны түсінбейді. Сол себепті қосылды:
+
+- `package.json` → `"build:vercel": "next build"` скрипті
+- `vercel.json` → `buildCommand: "next build"`, `outputDirectory: ".next"`
+
+Барлық код таза Next.js App Router-де жазылған, сондықтан `next build` қатесіз өтеді.
+
+### Vercel Dashboard-та орнатылатын Environment Variables
+
+Firebase кілттері `.env.local` файлында тұр, ал ол Git-ке кірмейді (`.gitignore`).
+Сондықтан оларды **Vercel → Settings → Environment Variables** бөлімінде қолмен қосу қажет:
+
+| Айнымалы | Мәні |
+|---|---|
+| `NEXT_PUBLIC_FIREBASE_API_KEY` | Firebase Console-дан |
+| `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN` | Firebase Console-дан |
+| `NEXT_PUBLIC_FIREBASE_PROJECT_ID` | Firebase Console-дан |
+| `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET` | Firebase Console-дан |
+| `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID` | Firebase Console-дан |
+| `NEXT_PUBLIC_FIREBASE_APP_ID` | Firebase Console-дан |
+| `NEXT_PUBLIC_TEACHER_INVITE_CODE` | Мұғалім шақыру коды |
+
+> ⚠️ Оларсыз сайт ашылады, бірақ «Firebase кілттері әлі қосылмаған» деген хабарлама шығады.
+
+### Firebase Authentication домені
+
+Деплойдан кейін **Firebase Console → Authentication → Settings → Authorized domains**
+бөліміне Vercel домендерін қосыңыз (мыс. `eco-math.vercel.app`), әйтпесе Google арқылы
+кіру `auth/unauthorized-domain` қатесін береді.
+
+### Деплой қай бұтақтан жасалады
+
+Vercel логында `Branch: main` жазылған. Бұл сессияның өзгерістері `arena/01a0c928-ecomath`
+бұтағында, сондықтан деплойға түсуі үшін оны `main`-ге біріктіру (merge) қажет.
