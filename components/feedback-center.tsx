@@ -19,6 +19,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useAuth } from "@/components/auth-provider";
 import {
   createFeedbackThread,
+  feedbackErrorText,
   sendFeedbackMessage,
   setFeedbackStatus,
   subscribeToMessages,
@@ -60,7 +61,7 @@ export function FeedbackCenter() {
       },
       (subError) => {
         console.error(subError);
-        setError("Хабарламаларды жүктеу мүмкін болмады. Firestore баптауын тексеріңіз.");
+        setError(feedbackErrorText(subError, "Хабарламаларды жүктеу мүмкін болмады. Firestore баптауын тексеріңіз."));
         setLoading(false);
       },
     );
@@ -71,7 +72,18 @@ export function FeedbackCenter() {
       setMessages([]);
       return;
     }
-    return subscribeToMessages(selectedId, setMessages, () => setError("Хаттарды жүктеу мүмкін болмады."));
+    return subscribeToMessages(
+      selectedId,
+      (items) => {
+        setMessages(items);
+        // Деректер келді — бұрынғы қате хабарламасын тазалаймыз.
+        setError("");
+      },
+      (listenError) => {
+        console.error(listenError);
+        setError(feedbackErrorText(listenError));
+      },
+    );
   }, [selectedId]);
 
   const visibleThreads = useMemo(() => {
