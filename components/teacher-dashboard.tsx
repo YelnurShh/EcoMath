@@ -25,6 +25,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { firestoreErrorText } from "@/lib/firestore-retry";
 import { useAuth } from "@/components/auth-provider";
 import { FeedbackCenter } from "@/components/feedback-center";
 import { LoadingLottie } from "@/components/loading-lottie";
@@ -81,9 +82,10 @@ export function TeacherDashboard({ profile }: { profile: UserProfile }) {
     try {
       const list = await getStudentsForTeacher();
       setStudents(list);
+      setError(""); // сәтті жүктелді — ескі қатені өшіреміз
     } catch (loadError) {
       console.error(loadError);
-      setError("Оқушылар тізімін жүктеу мүмкін болмады. Firestore ережелерін жаңартыңыз (firestore.rules).");
+      setError(firestoreErrorText(loadError, "Оқушылар тізімін жүктеу мүмкін болмады."));
     } finally {
       setLoading(false);
     }
@@ -94,10 +96,16 @@ export function TeacherDashboard({ profile }: { profile: UserProfile }) {
   }, [loadStudents]);
 
   useEffect(() => {
-    return subscribeToAssignments(setAssignments, (subError) => {
-      console.error(subError);
-      setError("Тапсырмаларды жүктеу мүмкін болмады.");
-    });
+    return subscribeToAssignments(
+      (items) => {
+        setAssignments(items);
+        setError("");
+      },
+      (subError) => {
+        console.error(subError);
+        setError(firestoreErrorText(subError, "Тапсырмаларды жүктеу мүмкін болмады."));
+      },
+    );
   }, []);
 
   const refreshSubmissions = useCallback(async () => {

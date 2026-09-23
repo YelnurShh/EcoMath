@@ -37,6 +37,7 @@ import {
   type Submission,
 } from "@/lib/assignments";
 import { subscribeToThreads, type FeedbackThread } from "@/lib/feedback";
+import { firestoreErrorText } from "@/lib/firestore-retry";
 import { DeleteAccountDialog } from "@/components/delete-account-dialog";
 
 function daysAgo(value: number, now: number) {
@@ -78,10 +79,13 @@ export function TeacherProfile({ user, profile }: { user: User; profile: UserPro
         setStudents(studentList);
         setAssignments(assignmentList);
         const submissionList = await getAllSubmissions(assignmentList);
-        if (!cancelled) setSubmissions(submissionList);
+        if (!cancelled) {
+          setSubmissions(submissionList);
+          setError("");
+        }
       } catch (loadError) {
         console.error(loadError);
-        if (!cancelled) setError("Деректерді жүктеу мүмкін болмады. Firestore ережелерін тексеріңіз.");
+        if (!cancelled) setError(firestoreErrorText(loadError, "Деректерді жүктеу мүмкін болмады."));
       } finally {
         if (!cancelled) setLoading(false);
       }

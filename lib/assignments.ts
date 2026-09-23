@@ -16,6 +16,7 @@ import {
   type Unsubscribe,
 } from "firebase/firestore";
 import { getFirebaseDb } from "@/lib/firebase";
+import { fetchWithRetry, listenWithRetry } from "@/lib/firestore-retry";
 import { millis, num, type UserProfile } from "@/lib/user-profile";
 
 export type Assignment = {
@@ -127,16 +128,22 @@ export function subscribeToAssignments(
   onError: (error: unknown) => void,
 ): Unsubscribe {
   // orderBy қолданылмайды: өрісі әлі жазылмаған құжат нәтижеден түсіп қалады.
-  const request = query(collection(db(), "assignments"), limit(100));
-  return onSnapshot(
-    request,
-    (snapshot) => callback(sortAssignments(snapshot.docs.map((item) => mapAssignment(item.id, item.data())))),
+  return listenWithRetry(
+    (onData, onFail) =>
+      onSnapshot(
+        query(collection(db(), "assignments"), limit(100)),
+        (snapshot) => {
+          onData();
+          callback(sortAssignments(snapshot.docs.map((item) => mapAssignment(item.id, item.data()))));
+        },
+        onFail,
+      ),
     onError,
   );
 }
 
 export async function getAssignments(): Promise<Assignment[]> {
-  const snapshot = await getDocs(query(collection(db(), "assignments"), limit(100)));
+  const snapshot = await fetchWithRetry(() => getDocs(query(collection(db(), "assignments"), limit(100))));
   return sortAssignments(snapshot.docs.map((item) => mapAssignment(item.id, item.data())));
 }
 
@@ -212,14 +219,19 @@ export function subscribeToSubmissions(
   callback: (items: Submission[]) => void,
   onError: (error: unknown) => void,
 ): Unsubscribe {
-  const request = query(collection(db(), "assignments", assignment.id, "submissions"), limit(200));
-  return onSnapshot(
-    request,
-    (snapshot) =>
-      callback(
-        snapshot.docs
-          .map((item) => mapSubmission(assignment.id, assignment.title, item.id, item.data()))
-          .sort((a, b) => b.submittedAt - a.submittedAt),
+  return listenWithRetry(
+    (onData, onFail) =>
+      onSnapshot(
+        query(collection(db(), "assignments", assignment.id, "submissions"), limit(200)),
+        (snapshot) => {
+          onData();
+          callback(
+            snapshot.docs
+              .map((item) => mapSubmission(assignment.id, assignment.title, item.id, item.data()))
+              .sort((a, b) => b.submittedAt - a.submittedAt),
+          );
+        },
+        onFail,
       ),
     onError,
   );
@@ -252,7 +264,9 @@ export async function getAllSubmissions(assignments: Assignment[]): Promise<Subm
   const chunks = await Promise.all(
     assignments.map(async (assignment) => {
       try {
-        const snapshot = await getDocs(collection(db(), "assignments", assignment.id, "submissions"));
+        const snapshot = await fetchWithRetry(() =>
+          getDocs(collection(db(), "assignments", assignment.id, "submissions")),
+        );
         return snapshot.docs.map((item) => mapSubmission(assignment.id, assignment.title, item.id, item.data()));
       } catch {
         return [] as Submission[];
@@ -274,6 +288,10 @@ export function isVisibleForStudent(assignment: Assignment, className: string) {
 
 export async function getStudentsForTeacher(): Promise<UserProfile[]> {
   const { mapProfile } = await import("@/lib/user-profile");
-  const snapshot = await getDocs(query(collection(db(), "users"), where("role", "==", "student"), limit(300)));
+  // Ережелердегі isTeacher() мұғалімнің users/{uid} құжатын оқиды. Кіргеннен кейінгі
+  // алғашқы сәтте ол құжат әлі көрінбей, permission-denied келуі мүмкін — қайталаймыз.
+  const snapshot = await fetchWithRetry(() =>
+    getDocs(query(collection(db(), "users"), where("role", "==", "student"), limit(300))),
+  );
   return snapshot.docs.map((item) => mapProfile(item.id, item.data() as Record<string, unknown>));
 }

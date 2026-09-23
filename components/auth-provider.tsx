@@ -4,6 +4,7 @@ import { onAuthStateChanged, type User } from "firebase/auth";
 import { doc, onSnapshot } from "firebase/firestore";
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { getFirebaseAuth, getFirebaseDb, isFirebaseConfigured } from "@/lib/firebase";
+import { listenWithRetry } from "@/lib/firestore-retry";
 import {
   clearPendingSignup,
   ensureUserProfile,
@@ -77,13 +78,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const db = getFirebaseDb();
     if (!db || !user) return;
 
-    return onSnapshot(
-      doc(db, "users", user.uid),
-      (snapshot) => {
-        if (snapshot.exists()) {
-          setProfile(mapProfile(user.uid, snapshot.data() as Record<string, unknown>));
-        }
-      },
+    return listenWithRetry(
+      (onData, onFail) =>
+        onSnapshot(
+          doc(db, "users", user.uid),
+          (snapshot) => {
+            onData();
+            if (snapshot.exists()) {
+              setProfile(mapProfile(user.uid, snapshot.data() as Record<string, unknown>));
+            }
+          },
+          onFail,
+        ),
       () => undefined,
     );
   }, [user]);
