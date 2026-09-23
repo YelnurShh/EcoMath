@@ -27,6 +27,7 @@ import {
 import { getFirebaseAuth, googleProvider, isFirebaseConfigured } from "@/lib/firebase";
 import { useAuth } from "@/components/auth-provider";
 import { LoadingLottie } from "@/components/loading-lottie";
+import { GoogleIcon } from "@/components/google-icon";
 import { isValidTeacherCode, storePendingSignup, type UserRole } from "@/lib/user-profile";
 
 function getAuthMessage(error: unknown): string {
@@ -269,7 +270,7 @@ export function AuthPanel() {
       )}
 
       <button className="google-button" onClick={handleGoogleSignIn} disabled={busy} type="button">
-        <span className="google-mark">G</span> Google арқылы жалғастыру
+        <span className="google-mark"><GoogleIcon /></span> Google арқылы жалғастыру
       </button>
       <div className="auth-divider"><span>немесе email арқылы</span></div>
 
