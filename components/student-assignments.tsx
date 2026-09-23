@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
+  AlertCircle,
   ArrowRight,
   BadgeCheck,
   CalendarClock,
@@ -12,7 +13,9 @@ import {
   Link2,
   Loader2,
   MessageSquareQuote,
+  RefreshCw,
   Send,
+  Users,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,10 +23,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/components/auth-provider";
 import { LoadingLottie } from "@/components/loading-lottie";
 import {
-  getAssignments,
   getMySubmissions,
   isVisibleForStudent,
   submitAssignment,
+  subscribeToAssignments,
   type Assignment,
   type Submission,
 } from "@/lib/assignments";
@@ -35,7 +38,7 @@ function formatDate(value: number) {
 
 export function StudentAssignments() {
   const { user, profile, loading: authLoading } = useAuth();
-  const [assignments, setAssignments] = useState<Assignment[]>([]);
+  const [allAssignments, setAllAssignments] = useState<Assignment[]>([]);
   const [submissions, setSubmissions] = useState<Record<string, Submission>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -44,45 +47,79 @@ export function StudentAssignments() {
   const [link, setLink] = useState("");
   const [busy, setBusy] = useState(false);
   const [filter, setFilter] = useState<"active" | "done" | "all">("active");
+  const [showOtherClasses, setShowOtherClasses] = useState(false);
   const [now] = useState(() => Date.now());
 
-  const load = useCallback(async () => {
-    if (!profile) return;
+  const uid = user?.uid;
+  const className = profile?.className ?? "";
+
+  // Тапсырмаларды нақты уақытта тыңдау — мұғалім жарияласа бірден көрінеді.
+  useEffect(() => {
+    if (!uid) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
+    return subscribeToAssignments(
+      (items) => {
+        setAllAssignments(items);
+        setError("");
+        setLoading(false);
+      },
+      (subError) => {
+        console.error(subError);
+        setError("Тапсырмаларды жүктеу мүмкін болмады. Интернет байланысы мен Firestore ережелерін тексеріңіз.");
+        setLoading(false);
+      },
+    );
+  }, [uid]);
+
+  // Менің жіберілімдерім
+  const loadSubmissions = useCallback(async () => {
+    if (!uid || allAssignments.length === 0) {
+      setSubmissions({});
+      return;
+    }
     try {
-      const list = (await getAssignments()).filter((item) => isVisibleForStudent(item, profile.className));
-      setAssignments(list);
-      setSubmissions(await getMySubmissions(list, profile.uid));
-      setError("");
+      setSubmissions(await getMySubmissions(allAssignments, uid));
     } catch (loadError) {
       console.error(loadError);
-      setError("Тапсырмаларды жүктеу мүмкін болмады.");
-    } finally {
-      setLoading(false);
     }
-  }, [profile]);
+  }, [allAssignments, uid]);
 
   useEffect(() => {
-    if (!authLoading) load();
-  }, [authLoading, load]);
+    loadSubmissions();
+  }, [loadSubmissions]);
+
+  // Маған арналған / басқа сыныпқа арналған
+  const forMe = useMemo(
+    () => allAssignments.filter((item) => isVisibleForStudent(item, className)),
+    [allAssignments, className],
+  );
+  const otherClasses = useMemo(
+    () => allAssignments.filter((item) => !isVisibleForStudent(item, className)),
+    [allAssignments, className],
+  );
+
+  const pool = showOtherClasses ? allAssignments : forMe;
 
   const visible = useMemo(() => {
-    return assignments.filter((assignment) => {
+    return pool.filter((assignment) => {
       const submission = submissions[assignment.id];
       if (filter === "all") return true;
       if (filter === "done") return Boolean(submission);
       return !submission;
     });
-  }, [assignments, filter, submissions]);
+  }, [filter, pool, submissions]);
 
   const summary = useMemo(() => {
-    const done = assignments.filter((item) => submissions[item.id]).length;
+    const done = forMe.filter((item) => submissions[item.id]).length;
     const graded = Object.values(submissions).filter((item) => item.status === "graded");
     const avg = graded.length
       ? Math.round((graded.reduce((sum, item) => sum + item.grade / Math.max(item.maxPoints, 1), 0) / graded.length) * 100)
       : 0;
-    return { total: assignments.length, done, graded: graded.length, avg };
-  }, [assignments, submissions]);
+    return { total: forMe.length, done, graded: graded.length, avg };
+  }, [forMe, submissions]);
 
   if (authLoading || (user && loading)) {
     return <div className="teacher-loading"><LoadingLottie width={140} height={140} /><p>Тапсырмалар жүктелуде...</p></div>;
@@ -107,7 +144,7 @@ export function StudentAssignments() {
       setText("");
       setLink("");
       setOpenId(null);
-      await load();
+      await loadSubmissions();
     } catch (sendError) {
       console.error(sendError);
       setError("Жұмыс жіберілмеді. Қайта байқап көріңіз.");
@@ -125,10 +162,41 @@ export function StudentAssignments() {
         <article className="accent"><small>ОРТАША БАЛЛ</small><strong>{summary.avg}%</strong></article>
       </div>
 
-      <div className="class-chips assignment-filters">
-        <button className={filter === "active" ? "active" : ""} onClick={() => setFilter("active")} type="button">Орындалмаған</button>
-        <button className={filter === "done" ? "active" : ""} onClick={() => setFilter("done")} type="button">Жіберілген</button>
-        <button className={filter === "all" ? "active" : ""} onClick={() => setFilter("all")} type="button">Барлығы</button>
+      {/* Сынып көрсетілмесе — тапсырма көрінбеуінің басты себебі */}
+      {!profile.className && (
+        <div className="assignment-hint warn">
+          <AlertCircle />
+          <div>
+            <strong>Профильде сыныбыңыз көрсетілмеген</strong>
+            <p>Мұғалім белгілі бір сыныпқа тапсырма берсе, ол сізге көрінбейді. Профильде сыныбыңызды жазыңыз.</p>
+          </div>
+          <Link href="/profile" className="soft-button">Профильді толтыру <ArrowRight size={14} /></Link>
+        </div>
+      )}
+
+      {/* Басқа сыныпқа арналған тапсырмалар бар екенін білдіру */}
+      {profile.className && otherClasses.length > 0 && (
+        <div className="assignment-hint">
+          <Users />
+          <div>
+            <strong>{otherClasses.length} тапсырма басқа сыныпқа арналған</strong>
+            <p>Сіздің сыныбыңыз — <b>{profile.className}</b>. Мұғалім басқа сынып көрсеткен тапсырмалар жасырылған.</p>
+          </div>
+          <button className="soft-button" type="button" onClick={() => setShowOtherClasses((value) => !value)}>
+            {showOtherClasses ? "Жасыру" : "Бәрін көрсету"}
+          </button>
+        </div>
+      )}
+
+      <div className="assignment-toolbar">
+        <div className="class-chips assignment-filters">
+          <button className={filter === "active" ? "active" : ""} onClick={() => setFilter("active")} type="button">Орындалмаған</button>
+          <button className={filter === "done" ? "active" : ""} onClick={() => setFilter("done")} type="button">Жіберілген</button>
+          <button className={filter === "all" ? "active" : ""} onClick={() => setFilter("all")} type="button">Барлығы</button>
+        </div>
+        <button className="soft-button" type="button" onClick={loadSubmissions} aria-label="Жаңарту">
+          <RefreshCw size={15} /> Жаңарту
+        </button>
       </div>
 
       {error && <p className="auth-error">{error}</p>}
@@ -136,16 +204,29 @@ export function StudentAssignments() {
       {visible.length === 0 ? (
         <div className="teacher-empty big">
           <ClipboardList />
-          <strong>Бұл санатта тапсырма жоқ</strong>
-          <p>Мұғалім жаңа тапсырма жарияласа, ол осы жерде пайда болады.</p>
+          <strong>
+            {allAssignments.length === 0
+              ? "Әзірге тапсырма жарияланбаған"
+              : forMe.length === 0
+                ? "Сіздің сыныбыңызға тапсырма жоқ"
+                : "Бұл санатта тапсырма жоқ"}
+          </strong>
+          <p>
+            {allAssignments.length === 0
+              ? "Мұғалім жаңа тапсырма жарияласа, ол осы жерде бірден пайда болады."
+              : forMe.length === 0
+                ? `Барлығы ${allAssignments.length} тапсырма бар, бірақ олар басқа сыныптарға арналған.`
+                : "Басқа сүзгіні таңдап көріңіз."}
+          </p>
         </div>
       ) : (
         <div className="assignment-grid student">
           {visible.map((assignment) => {
             const submission = submissions[assignment.id];
             const overdue = assignment.dueAt > 0 && assignment.dueAt < now && !submission;
+            const otherClass = !isVisibleForStudent(assignment, className);
             return (
-              <article className={`assignment-card ${submission?.status === "graded" ? "graded" : submission ? "submitted" : ""} ${overdue ? "overdue" : ""}`} key={assignment.id}>
+              <article className={`assignment-card ${submission?.status === "graded" ? "graded" : submission ? "submitted" : ""} ${overdue ? "overdue" : ""} ${otherClass ? "other-class" : ""}`} key={assignment.id}>
                 <header>
                   <span className="assignment-topic">{assignment.topic}</span>
                   {submission ? (
@@ -162,7 +243,10 @@ export function StudentAssignments() {
                   <span><BadgeCheck size={14} /> {assignment.maxPoints} балл</span>
                   <span><CalendarClock size={14} /> {formatDate(assignment.dueAt)}</span>
                   <span><Clock3 size={14} /> {assignment.teacherName}</span>
+                  {assignment.targetClass && <span><Users size={14} /> {assignment.targetClass}</span>}
                 </div>
+
+                {otherClass && <p className="other-class-note">Бұл тапсырма {assignment.targetClass} сыныбына арналған.</p>}
 
                 {submission?.status === "graded" && submission.feedback && (
                   <div className="teacher-feedback-note">

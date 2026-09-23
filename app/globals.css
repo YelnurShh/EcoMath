@@ -420,3 +420,21 @@
   .activity-feed li { grid-template-columns:30px 1fr; }
   .activity-feed time { grid-column:2; }
 }
+
+/* ============ Тапсырма көрінуін түсіндіретін хабарламалар ============ */
+.assignment-hint { display:flex; flex-wrap:wrap; align-items:center; gap:15px; margin-bottom:16px; padding:17px 20px; border:1px solid #cfe0f2; border-radius:19px; background:linear-gradient(120deg,#f2f8fe,#eaf3fc); }
+.assignment-hint > svg { width:24px; flex:0 0 auto; color:#1f6bb0; }
+.assignment-hint div { flex:1; min-width:210px; }
+.assignment-hint strong { display:block; color:#174a75; font-size:14px; }
+.assignment-hint p { margin:4px 0 0; color:#4a6d8c; font-size:12.5px; line-height:1.55; }
+.assignment-hint p b { color:#174a75; }
+.assignment-hint.warn { border-color:#f2dcb4; background:linear-gradient(120deg,#fff9ea,#fdf3dd); }
+.assignment-hint.warn > svg { color:#d08214; }
+.assignment-hint.warn strong { color:#6b4b03; }
+.assignment-hint.warn p { color:#8a7241; }
+.assignment-toolbar { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:12px; margin-bottom:16px; }
+.assignment-toolbar .assignment-filters { margin-bottom:0; }
+.assignment-form-note { display:flex; align-items:flex-start; gap:7px; margin:0; padding:11px 14px; border-radius:13px; background:#eef6ec; color:#3d6b52; font-size:12.5px; line-height:1.5; }
+.assignment-form-note svg { flex:0 0 auto; margin-top:2px; color:#14734c; }
+.assignment-card.other-class { border-style:dashed; border-color:#d5dfd5; opacity:.82; }
+.other-class-note { margin:0 !important; padding:8px 12px; border-radius:11px; background:#f2f5f1; color:#7b8b81 !important; font-size:11.5px !important; }

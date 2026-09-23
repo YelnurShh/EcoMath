@@ -187,7 +187,6 @@ export function TeacherProfile({ user, profile }: { user: User; profile: UserPro
   );
 
   const initial = profile.displayName.charAt(0).toUpperCase();
-  const firstName = profile.displayName.split(" ")[0];
 
   async function handleSignOut() {
     await signOut(getFirebaseAuth()!);
