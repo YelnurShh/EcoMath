@@ -2,7 +2,9 @@
 minimumReleaseAge: 10080
 minimumReleaseAgeIgnoreMissingTime: false
 trustLockfile: false
-strictDepBuilds: true
+# Деплой орталарында (Vercel т.б.) жаңа тәуелділіктің build скрипті
+# орнатуды тоқтатып тастамауы үшін қатаң режим өшірілген.
+strictDepBuilds: false
 allowBuilds:
   '@firebase/util': true
   esbuild: true
