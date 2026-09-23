@@ -33,6 +33,7 @@ export type UserProfile = {
   role: UserRole;
   className: string;
   school: string;
+  subject: string;
   bio: string;
   createdAt: number;
   lastActiveAt: number;
@@ -58,6 +59,7 @@ export type PendingSignupMeta = {
   role: UserRole;
   className?: string;
   school?: string;
+  subject?: string;
   teacherCode?: string;
   displayName?: string;
 };
@@ -131,6 +133,7 @@ export function mapProfile(uid: string, data: Record<string, unknown>): UserProf
     role: data.role === "teacher" ? "teacher" : "student",
     className: String(data.className || ""),
     school: String(data.school || ""),
+    subject: String(data.subject || ""),
     bio: String(data.bio || ""),
     createdAt: millis(data.createdAt),
     lastActiveAt: millis(data.lastActiveAt),
@@ -169,6 +172,7 @@ export async function ensureUserProfile(
       roleLocked: true,
       className: (pending?.className ?? "").trim(),
       school: (pending?.school ?? "").trim(),
+      subject: (pending?.subject ?? "").trim(),
       bio: "",
       stats: EMPTY_STATS,
       createdAt: serverTimestamp(),
@@ -185,6 +189,7 @@ export async function ensureUserProfile(
       role,
       className: payload.className,
       school: payload.school,
+      subject: payload.subject,
       bio: "",
       createdAt: Date.now(),
       lastActiveAt: Date.now(),
@@ -228,7 +233,7 @@ export async function ensureUserProfile(
 
 export async function updateProfileFields(
   uid: string,
-  fields: { displayName?: string; className?: string; school?: string; bio?: string },
+  fields: { displayName?: string; className?: string; school?: string; subject?: string; bio?: string },
 ) {
   const db = getFirebaseDb();
   if (!db) throw new Error("Firebase конфигурациясы толтырылмаған.");
@@ -236,6 +241,7 @@ export async function updateProfileFields(
   if (fields.displayName !== undefined) patch.displayName = fields.displayName.trim().slice(0, 60);
   if (fields.className !== undefined) patch.className = fields.className.trim().slice(0, 20);
   if (fields.school !== undefined) patch.school = fields.school.trim().slice(0, 80);
+  if (fields.subject !== undefined) patch.subject = fields.subject.trim().slice(0, 60);
   if (fields.bio !== undefined) patch.bio = fields.bio.trim().slice(0, 240);
   await updateDoc(doc(db, "users", uid), patch);
 }

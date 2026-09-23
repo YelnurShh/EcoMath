@@ -12,6 +12,7 @@ import {
   ClipboardList,
   Flame,
   GraduationCap,
+  Info,
   Loader2,
   MessageCircleMore,
   Plus,
@@ -413,9 +414,11 @@ function AssignmentsPanel({
           </label>
           <div className="form-row three">
             <label>
-              <span>Сынып (бос = барлығы)</span>
-              <input list="class-options" value={targetClass} onChange={(event) => setTargetClass(event.target.value)} placeholder="9Ә" maxLength={20} />
-              <datalist id="class-options">{classes.map((item) => <option key={item} value={item} />)}</datalist>
+              <span>Кімге арналған</span>
+              <select value={targetClass} onChange={(event) => setTargetClass(event.target.value)}>
+                <option value="">Барлық оқушыға</option>
+                {classes.map((item) => <option key={item} value={item}>{item} сыныбы</option>)}
+              </select>
             </label>
             <label>
               <span>Макс. балл</span>
@@ -426,6 +429,12 @@ function AssignmentsPanel({
               <input type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} />
             </label>
           </div>
+          <p className="assignment-form-note">
+            <Info size={14} />
+            {targetClass
+              ? `Бұл тапсырманы тек профилінде «${targetClass}» сыныбы көрсетілген оқушылар көреді.`
+              : "Сынып таңдалмаған — тапсырманы барлық оқушы көреді. Бұл ең сенімді нұсқа."}
+          </p>
           {error && <p className="auth-error">{error}</p>}
           <div className="form-actions">
             <Button type="submit" className="gradient-button" disabled={busy}>{busy ? <Loader2 className="spin" /> : <Send size={16} />} Жариялау</Button>
@@ -460,7 +469,7 @@ function AssignmentsPanel({
               <h4>{assignment.title}</h4>
               <p>{assignment.description}</p>
               <div className="assignment-meta">
-                <span><GraduationCap size={14} /> {assignment.targetClass || "Барлық сынып"}</span>
+                <span><GraduationCap size={14} /> {assignment.targetClass ? `${assignment.targetClass} сыныбы` : "Барлық оқушы"}</span>
                 <span><BadgeCheck size={14} /> {assignment.maxPoints} балл</span>
                 <span><CalendarClock size={14} /> {assignment.dueAt ? formatDate(assignment.dueAt) : "мерзімсіз"}</span>
               </div>

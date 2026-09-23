@@ -12,6 +12,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import {
   ArrowRight,
+  BookMarked,
   Eye,
   EyeOff,
   GraduationCap,
@@ -78,6 +79,7 @@ export function AuthPanel() {
   const [fullName, setFullName] = useState("");
   const [className, setClassName] = useState("");
   const [school, setSchool] = useState("");
+  const [subject, setSubject] = useState("");
   const [teacherCode, setTeacherCode] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -134,6 +136,7 @@ export function AuthPanel() {
     if (fullName.trim().length < 2) return "Аты-жөніңізді толық жазыңыз.";
     if (password.length < 6) return "Құпиясөз кемінде 6 таңбадан тұруы керек.";
     if (password !== confirm) return "Құпиясөздер сәйкес келмейді.";
+    if (role === "teacher" && subject.trim().length === 0) return "Оқытатын пәніңізді жазыңыз.";
     if (role === "teacher" && !isValidTeacherCode(teacherCode)) {
       return "Мұғалім шақыру коды қате. Кодты мектеп әкімшісінен алыңыз.";
     }
@@ -159,6 +162,7 @@ export function AuthPanel() {
         role,
         className: className.trim(),
         school: school.trim(),
+        subject: subject.trim(),
         teacherCode: teacherCode.trim(),
         displayName: fullName.trim() || undefined,
       });
@@ -196,6 +200,7 @@ export function AuthPanel() {
           role,
           className: className.trim(),
           school: school.trim(),
+          subject: subject.trim(),
           teacherCode: teacherCode.trim(),
           displayName: fullName.trim(),
         });
@@ -296,6 +301,12 @@ export function AuthPanel() {
 
             {role === "teacher" && (
               <>
+                <label htmlFor="subject">Оқытатын пән</label>
+                <div className="auth-input-wrap">
+                  <BookMarked size={17} />
+                  <input id="subject" value={subject} onChange={(event) => setSubject(event.target.value)} placeholder="Математика" maxLength={60} required />
+                </div>
+
                 <label htmlFor="teacherCode">Мұғалім шақыру коды</label>
                 <div className="auth-input-wrap">
                   <ShieldCheck size={17} />

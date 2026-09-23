@@ -8,7 +8,6 @@ import {
   increment,
   limit,
   onSnapshot,
-  orderBy,
   query,
   serverTimestamp,
   setDoc,
@@ -71,7 +70,7 @@ function mapAssignment(id: string, data: Record<string, unknown>): Assignment {
     targetClass: String(data.targetClass ?? ""),
     maxPoints: num(data.maxPoints, 10),
     dueAt: millis(data.dueAt),
-    createdAt: millis(data.createdAt),
+    createdAt: millis(data.createdAt) || num(data.createdAtMs),
     submissionCount: num(data.submissionCount),
     gradedCount: num(data.gradedCount),
   };
@@ -112,6 +111,7 @@ export async function createAssignment(
     dueAt: input.dueAt,
     submissionCount: 0,
     gradedCount: 0,
+    createdAtMs: Date.now(),
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });
@@ -126,17 +126,22 @@ export function subscribeToAssignments(
   callback: (items: Assignment[]) => void,
   onError: (error: unknown) => void,
 ): Unsubscribe {
-  const request = query(collection(db(), "assignments"), orderBy("createdAt", "desc"), limit(60));
+  // orderBy қолданылмайды: өрісі әлі жазылмаған құжат нәтижеден түсіп қалады.
+  const request = query(collection(db(), "assignments"), limit(100));
   return onSnapshot(
     request,
-    (snapshot) => callback(snapshot.docs.map((item) => mapAssignment(item.id, item.data()))),
+    (snapshot) => callback(sortAssignments(snapshot.docs.map((item) => mapAssignment(item.id, item.data())))),
     onError,
   );
 }
 
 export async function getAssignments(): Promise<Assignment[]> {
-  const snapshot = await getDocs(query(collection(db(), "assignments"), orderBy("createdAt", "desc"), limit(60)));
-  return snapshot.docs.map((item) => mapAssignment(item.id, item.data()));
+  const snapshot = await getDocs(query(collection(db(), "assignments"), limit(100)));
+  return sortAssignments(snapshot.docs.map((item) => mapAssignment(item.id, item.data())));
+}
+
+function sortAssignments(items: Assignment[]): Assignment[] {
+  return [...items].sort((a, b) => b.createdAt - a.createdAt);
 }
 
 /** Оқушының өз тапсырмасын жіберуі (submission id = studentId). */
@@ -257,9 +262,14 @@ export async function getAllSubmissions(assignments: Assignment[]): Promise<Subm
   return chunks.flat().sort((a, b) => b.submittedAt - a.submittedAt);
 }
 
+/** Сынып атауын салыстыруға дайындау: бос орын, дефис, регистр ескерілмейді. */
+export function normalizeClass(value: string): string {
+  return (value || "").replace(/[\s\-_.]/g, "").toLowerCase();
+}
+
 export function isVisibleForStudent(assignment: Assignment, className: string) {
-  if (!assignment.targetClass) return true;
-  return assignment.targetClass.toLowerCase() === (className || "").toLowerCase();
+  if (!assignment.targetClass.trim()) return true;
+  return normalizeClass(assignment.targetClass) === normalizeClass(className);
 }
 
 export async function getStudentsForTeacher(): Promise<UserProfile[]> {

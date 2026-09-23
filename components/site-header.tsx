@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ArrowUpRight, LayoutDashboard, Leaf, Menu, UserRound, X } from "lucide-react";
+import { ArrowUpRight, GraduationCap, Leaf, Menu, UserRound, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/components/auth-provider";
 
@@ -43,9 +43,9 @@ export function SiteHeader() {
       </nav>
       <div className="header-actions">
         {user ? (
-          <Link className="header-user-card" href={profile?.role === "teacher" ? "/teacher-dashboard" : "/profile"} aria-label="Профильді ашу">
+          <Link className="header-user-card" href="/profile" aria-label="Профильді ашу">
             <span className="header-avatar">
-              {user.photoURL ? <img src={user.photoURL} alt="" referrerPolicy="no-referrer" /> : profile?.role === "teacher" ? <LayoutDashboard /> : <UserRound />}
+              {user.photoURL ? <img src={user.photoURL} alt="" referrerPolicy="no-referrer" /> : profile?.role === "teacher" ? <GraduationCap /> : <UserRound />}
             </span>
             <span className="header-user-copy">
               <strong>{profile?.displayName ?? user.displayName ?? user.email?.split("@")[0] ?? "Қолданушы"}</strong>
