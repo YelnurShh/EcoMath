@@ -37,6 +37,7 @@ import {
   type Submission,
 } from "@/lib/assignments";
 import { subscribeToThreads, type FeedbackThread } from "@/lib/feedback";
+import { DeleteAccountDialog } from "@/components/delete-account-dialog";
 
 function daysAgo(value: number, now: number) {
   if (!value) return "белгісіз";
@@ -377,6 +378,15 @@ export function TeacherProfile({ user, profile }: { user: User; profile: UserPro
           </article>
         </aside>
       </div>
+
+      <section className="danger-zone">
+        <div>
+          <span className="section-kicker">ҚАУІПТІ АЙМАҚ</span>
+          <h3>Аккаунтты өшіру</h3>
+          <p>Профиліңіз, жариялаған тапсырмаларыңыз және олардағы барлық оқушы жұмыстары мен бағалар біржола жойылады.</p>
+        </div>
+        <DeleteAccountDialog user={user} role="teacher" displayName={profile.displayName} />
+      </section>
     </section>
   );
 }

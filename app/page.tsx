@@ -1,9 +1,11 @@
 import Link from "next/link";
+import { DeletedNotice } from "@/components/deleted-notice";
 import { ArrowRight, BarChart3, Check, ClipboardList, FlaskConical, Leaf, MessageCircleMore, Play, Sparkles } from "lucide-react";
 
 export default function Home() {
   return (
     <main>
+      <DeletedNotice />
       <section className="home-hero page-shell">
         <div className="gradient-blob blob-one" /><div className="gradient-blob blob-two" />
         <div className="hero-copy animate-in">

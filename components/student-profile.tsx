@@ -31,6 +31,7 @@ import { getFirebaseAuth } from "@/lib/firebase";
 import { getQuizResults, type QuizResult } from "@/lib/quiz-results";
 import { levelFromXp, updateProfileFields, type UserProfile } from "@/lib/user-profile";
 import { buildAchievements } from "@/lib/achievements";
+import { DeleteAccountDialog } from "@/components/delete-account-dialog";
 import { getAssignments, getMySubmissions, isVisibleForStudent, type Submission } from "@/lib/assignments";
 
 export function StudentProfile({ user, profile }: { user: User; profile: UserProfile }) {
@@ -313,6 +314,15 @@ export function StudentProfile({ user, profile }: { user: User; profile: UserPro
           )}
         </aside>
       </div>
+
+      <section className="danger-zone">
+        <div>
+          <span className="section-kicker">ҚАУІПТІ АЙМАҚ</span>
+          <h3>Аккаунтты өшіру</h3>
+          <p>Профиліңіз, викторина нәтижелеріңіз, жіберген жұмыстарыңыз бен кері байланыс тарихыңыз біржола жойылады.</p>
+        </div>
+        <DeleteAccountDialog user={user} role="student" displayName={displayName} />
+      </section>
     </section>
   );
 }

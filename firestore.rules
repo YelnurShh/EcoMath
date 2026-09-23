@@ -33,7 +33,8 @@ service cloud.firestore {
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["stats", "updatedAt", "lastActiveAt"]))
       );
 
-      allow delete: if false;
+      // Қолданушы өз аккаунтын өшіре алады (GDPR-стиль «өзін-өзі өшіру»).
+      allow delete: if signedIn() && request.auth.uid == userId;
 
       match /quizAttempts/{attemptId} {
         allow read: if signedIn() && (request.auth.uid == userId || isTeacher());
@@ -49,7 +50,9 @@ service cloud.firestore {
           && request.resource.data.total <= 50
           && request.resource.data.percent >= 0
           && request.resource.data.percent <= 100;
-        allow update, delete: if false;
+        allow update: if false;
+        // Аккаунтты өшіргенде өз нәтижелерін тазалау үшін.
+        allow delete: if signedIn() && request.auth.uid == userId;
       }
     }
 
@@ -96,7 +99,8 @@ service cloud.firestore {
           || isTeacher()
         );
 
-        allow delete: if isTeacher();
+        // Мұғалім кез келгенін, оқушы тек өзінікін өшіреді (аккаунт өшіру кезінде).
+        allow delete: if signedIn() && (request.auth.uid == studentId || isTeacher());
       }
     }
 
@@ -123,7 +127,8 @@ service cloud.firestore {
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["lastMessage", "lastSenderRole", "status", "updatedAt", "messageCount"]))
       );
 
-      allow delete: if false;
+      // Чат иесі (оқушы) аккаунтын өшіргенде чатын да жоя алады.
+      allow delete: if signedIn() && resource.data.studentId == request.auth.uid;
 
       match /messages/{messageId} {
         function thread() {
@@ -138,7 +143,12 @@ service cloud.firestore {
           && request.resource.data.text.size() <= 1000
           && ((thread().data.studentId == request.auth.uid && request.resource.data.senderRole == "student")
             || (isTeacher() && request.resource.data.senderRole == "teacher"));
-        allow update, delete: if false;
+        allow update: if false;
+        // Аккаунт өшіру кезінде: өз хабарламасын немесе өз чатының тарихын тазалау.
+        allow delete: if signedIn() && (
+          resource.data.senderId == request.auth.uid
+          || thread().data.studentId == request.auth.uid
+        );
       }
     }
   }
